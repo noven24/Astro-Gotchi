@@ -5139,6 +5139,7 @@ function InteractivePracticeGuide({
 }
 
 
+
 // --- src/App.jsx ---
 // Astro-Gotchi: Mars Outpost Survival - Main Application
 

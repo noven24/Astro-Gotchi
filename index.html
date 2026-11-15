@@ -215,8 +215,26 @@
   <!-- Canvas Confetti -->
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
 
-  <!-- Babel Standalone for instant live JSX execution -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.6/babel.min.js"></script>
+  <!-- Global Error Diagnostic Listener -->
+  <script>
+    window.addEventListener('error', function(e) {
+      console.error('Outpost load error:', e);
+      var root = document.getElementById('root');
+      if (root && root.innerHTML.indexOf('ASTRO-GOTCHI INITIALIZING') !== -1) {
+        root.innerHTML = '<div class="min-h-screen flex flex-col items-center justify-center p-6 text-center font-mono">' +
+          '<div class="text-4xl mb-3">⚠️</div>' +
+          '<div class="text-lg font-bold text-rose-400 mb-2">OUTPOST INITIALIZATION ERROR</div>' +
+          '<div class="text-xs text-neutral-300 max-w-xl bg-neutral-900 border border-rose-500/50 p-4 rounded-xl text-left overflow-auto mb-4">' +
+            (e.message || 'Unknown runtime error') + '<br><span class="text-neutral-500 text-[10px]">' + (e.filename || '') + ':' + (e.lineno || '') + '</span>' +
+          '</div>' +
+          '<button onclick="location.reload()" class="px-4 py-2 bg-yellow-400 text-black font-bold text-xs rounded-lg uppercase hover:bg-yellow-300">Reload Outpost</button>' +
+        '</div>';
+      }
+    });
+  </script>
+
+  <!-- Precompiled Native JavaScript Bundle for Instant Production Execution -->
+  <script defer src="app.js"></script>
 </head>
 <body class="bg-neutral-950 text-white min-h-screen">
   <div id="root">
@@ -227,8 +245,5 @@
       <div class="text-xs font-mono text-neutral-400 mt-2">Loading NASA DONKI, OSDR & Mars Trek Systems...</div>
     </div>
   </div>
-
-  <!-- Load and Execute Astro-Gotchi Bundle -->
-  <script type="text/babel" data-presets="react" src="app.jsx"></script>
 </body>
 </html>

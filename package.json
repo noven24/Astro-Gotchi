@@ -1,13 +1,24 @@
 {
   "name": "junior-astronot",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "Astro-Gotchi: Mars Outpost Survival - NASA Space Apps Challenge",
+  "main": "index.html",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "node scripts/bundle.js",
+    "bundle": "node scripts/bundle.js",
+    "start": "node server.js"
   },
-  "keywords": [],
-  "author": "",
+  "keywords": [
+    "nasa",
+    "space-apps",
+    "mars",
+    "astro-gotchi",
+    "react",
+    "threejs"
+  ],
+  "author": "Noven24",
   "license": "ISC",
-  "type": "commonjs"
+  "dependencies": {
+    "vite": "^8.3.8"
+  }
 }

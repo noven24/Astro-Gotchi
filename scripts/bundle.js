@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 
-console.log('Generating bundled app.jsx for zero-config browser execution...');
+console.log('Generating bundled app.jsx and precompiled app.js for zero-config browser execution...');
 
 const files = [
   'src/data/nasa_donki.js',
@@ -57,5 +57,25 @@ if (rootElement) {
 }
 `;
 
-fs.writeFileSync('app.jsx', bundleContent, 'utf8');
-console.log('Successfully bundled to app.jsx! Size:', bundleContent.length, 'bytes');
+async function main() {
+  fs.writeFileSync('app.jsx', bundleContent, 'utf8');
+  console.log('Successfully bundled to app.jsx! Size:', bundleContent.length, 'bytes');
+
+  // Precompile to native JavaScript app.js for instant production execution without Babel Standalone
+  try {
+    const vite = require('vite');
+    const compiled = await vite.transformWithOxc(bundleContent, 'app.jsx', {
+      jsx: {
+        runtime: 'classic',
+        pragma: 'React.createElement',
+        pragmaFrag: 'React.Fragment'
+      }
+    });
+    fs.writeFileSync('app.js', compiled.code, 'utf8');
+    console.log('Successfully precompiled to native app.js! Size:', compiled.code.length, 'bytes');
+  } catch (err) {
+    console.warn('Could not precompile to app.js:', err.message);
+  }
+}
+
+main();

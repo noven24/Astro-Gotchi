@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Astro-Gotchi: Mars Outpost Survival | NASA Space Apps Challenge</title>
+  
+  <!-- Favicon -->
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🚀</text></svg>">
+
+  <!-- Google Fonts: Share Tech Mono, Chakra Petch, Plus Jakarta Sans & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700;800&family=Share+Tech+Mono&family=JetBrains+Mono:wght@400;600;800&family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            pipboy: ['"Share Tech Mono"', 'monospace'],
+            vault: ['"Chakra Petch"', 'sans-serif'],
+            mono: ['"Share Tech Mono"', '"JetBrains Mono"', 'monospace'],
+            sans: ['"Chakra Petch"', '"Plus Jakarta Sans"', 'sans-serif'],
+          },
+          colors: {
+            vault: {
+              yellow: '#facc15',
+              gold: '#eab308',
+              blue: '#0369a1',
+              darkblue: '#0c4a6e',
+              pipgreen: '#4ade80',
+              pipdark: '#052e16',
+              steel: '#1e293b',
+              metal: '#0f172a'
+            }
+          },
+          animation: {
+            fadeIn: 'fadeIn 0.25s ease-out forwards',
+            pulseFast: 'pulse 1s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+            flicker: 'flicker 0.15s infinite'
+          },
+          keyframes: {
+            fadeIn: {
+              '0%': { opacity: '0', transform: 'scale(0.98)' },
+              '100%': { opacity: '1', transform: 'scale(1)' },
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #0f172a;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #eab308;
+      border-radius: 2px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #facc15;
+    }
+    body {
+      background-color: #050811;
+      color: #ffffff;
+      font-family: 'Chakra Petch', sans-serif;
+    }
+
+    /* Fallout Shelter Hazard Diagonal Stripes */
+    .hazard-stripes {
+      background: repeating-linear-gradient(
+        -45deg,
+        #eab308,
+        #eab308 12px,
+        #0f172a 12px,
+        #0f172a 24px
+      );
+    }
+    .hazard-stripes-danger {
+      background: repeating-linear-gradient(
+        -45deg,
+        #ef4444,
+        #ef4444 12px,
+        #1e1b4b 12px,
+        #1e1b4b 24px
+      );
+    }
+
+    /* Pip-Boy CRT Scanlines & Screen Glow */
+    .pipboy-crt {
+      position: relative;
+      background: radial-gradient(circle at center, #063718 0%, #021a0a 100%);
+      box-shadow: inset 0 0 35px rgba(34, 197, 94, 0.25), 0 0 20px rgba(34, 197, 94, 0.15);
+    }
+    .pipboy-crt::before {
+      content: " ";
+      display: block;
+      position: absolute;
+      top: 0; left: 0; bottom: 0; right: 0;
+      background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.35) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.04), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.04));
+      z-index: 20;
+      background-size: 100% 3px, 4px 100%;
+      pointer-events: none;
+    }
+    .pipboy-glow {
+      text-shadow: 0 0 6px #4ade80, 0 0 12px rgba(74, 222, 128, 0.5);
+    }
+
+    /* Vault-Tec Heavy Industrial Frame */
+    .vault-panel {
+      background: #0f172a;
+      border: 3px solid #eab308;
+      box-shadow: 0 4px 0 #854d0e, inset 0 0 10px rgba(0,0,0,0.6);
+      position: relative;
+    }
+    .vault-panel-green {
+      background: #064e3b;
+      border: 3px solid #22c55e;
+      box-shadow: 0 4px 0 #14532d, inset 0 0 10px rgba(0,0,0,0.6);
+    }
+
+    /* Chunky Fallout Shelter Tactile Buttons */
+    .vault-btn {
+      background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
+      border: 2px solid #eab308;
+      box-shadow: 0 4px 0 #854d0e, 0 6px 10px rgba(0,0,0,0.5);
+      transition: all 0.08s ease-in-out;
+    }
+    .vault-btn:hover {
+      background: linear-gradient(180deg, #334155 0%, #1e293b 100%);
+      border-color: #facc15;
+    }
+    .vault-btn:active {
+      transform: translateY(3px);
+      box-shadow: 0 1px 0 #854d0e;
+    }
+
+    .vault-btn-green {
+      background: linear-gradient(180deg, #065f46 0%, #022c22 100%);
+      border: 2px solid #22c55e;
+      box-shadow: 0 4px 0 #14532d, 0 6px 10px rgba(0,0,0,0.5);
+      transition: all 0.08s ease-in-out;
+    }
+    .vault-btn-green:hover {
+      background: linear-gradient(180deg, #047857 0%, #064e3b 100%);
+      border-color: #4ade80;
+    }
+    .vault-btn-green:active {
+      transform: translateY(3px);
+      box-shadow: 0 1px 0 #14532d;
+    }
+
+    /* Fallout Shelter Capsule Resource Meter */
+    .fallout-capsule {
+      background: #0a0f1d;
+      border: 2px solid #334155;
+      box-shadow: inset 0 2px 4px rgba(0,0,0,0.8);
+      position: relative;
+    }
+    .fallout-threshold-tick {
+      position: absolute;
+      top: -4px;
+      bottom: -4px;
+      width: 2px;
+      background: #ef4444;
+      box-shadow: 0 0 6px #ef4444;
+      z-index: 10;
+    }
+    .fallout-threshold-tick::before {
+      content: "";
+      position: absolute;
+      top: -3px;
+      left: -3px;
+      border-left: 4px solid transparent;
+      border-right: 4px solid transparent;
+      border-top: 5px solid #ef4444;
+    }
+    .fallout-threshold-tick::after {
+      content: "";
+      position: absolute;
+      bottom: -3px;
+      left: -3px;
+      border-left: 4px solid transparent;
+      border-right: 4px solid transparent;
+      border-bottom: 5px solid #ef4444;
+    }
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+  </style>
+
+  <!-- React 18 UMD -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+
+  <!-- Three.js & FBXLoader for Native FBX 3D Assets -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/fflate@0.8.0/umd/index.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/FBXLoader.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
+  <!-- Canvas Confetti -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
+
+  <!-- Babel Standalone for instant live JSX execution -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.6/babel.min.js"></script>
+</head>
+<body class="bg-neutral-950 text-white min-h-screen">
+  <div id="root">
+    <!-- Initial Loading State -->
+    <div class="min-h-screen flex flex-col items-center justify-center p-4">
+      <div class="w-16 h-16 border-4 border-amber-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+      <div class="text-xl font-mono font-bold text-amber-400">ASTRO-GOTCHI INITIALIZING...</div>
+      <div class="text-xs font-mono text-neutral-400 mt-2">Loading NASA DONKI, OSDR & Mars Trek Systems...</div>
+    </div>
+  </div>
+
+  <!-- Load and Execute Astro-Gotchi Bundle -->
+  <script type="text/babel" data-presets="react" src="app.jsx"></script>
+</body>
+</html>

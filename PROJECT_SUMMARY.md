@@ -169,3 +169,4 @@ graph LR
 | **Authentic NASA Data Usage** | Curated historical DONKI solar flare/CME events, OSDR space biology studies, and Mars Trek cartography. |
 | **Realistic Spaceflight Lessons** | Teaches critical thinking through **Trade-Offs**: every action costs power, oxygen, or physical health. |
 | **Zero-Barrier Accessibility** | Runs instantly in any modern web browser across PC, tablet, and mobile without complex installations. |
+

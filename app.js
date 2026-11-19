@@ -1169,6 +1169,29 @@ function ThreeDOutpostView({ resources, activeDonki, shieldActive, solPhase, cur
 	}, [isWorking, activeStation]);
 	const triggerStationRef = useRef(null);
 	const resetCameraRef = useRef(null);
+	const tooltipTimeoutRef = useRef(null);
+	// Live mutable refs to eliminate any stale closures in Three.js animation / event callbacks
+	const dailyShiftsLeftRef = useRef(dailyShiftsLeft);
+	useEffect(() => {
+		dailyShiftsLeftRef.current = dailyShiftsLeft;
+	}, [dailyShiftsLeft]);
+	const langRef = useRef(lang);
+	useEffect(() => {
+		langRef.current = lang;
+	}, [lang]);
+	const onInteractStationRef = useRef(onInteractStation);
+	useEffect(() => {
+		onInteractStationRef.current = onInteractStation;
+	}, [onInteractStation]);
+	const showTooltip = (tooltipObj, duration = 3500) => {
+		if (tooltipTimeoutRef.current) {
+			clearTimeout(tooltipTimeoutRef.current);
+		}
+		setActiveTooltip(tooltipObj);
+		tooltipTimeoutRef.current = setTimeout(() => {
+			setActiveTooltip(null);
+		}, duration);
+	};
 	const isStorming = activeDonki?.hazardLevel === "CRITICAL" || activeDonki?.hazardLevel === "EXTREME";
 	useEffect(() => {
 		if (!mountRef.current || typeof window === "undefined") return;
@@ -2525,14 +2548,16 @@ function ThreeDOutpostView({ resources, activeDonki, shieldActive, solPhase, cur
 		triggerStationRef.current = (stationKey, directImpact) => {
 			// Prevent interrupting when Leo is already traveling, working, or returning!
 			if (workPhase !== "IDLE") return;
+			const currentLang = langRef.current || "en";
+			const currentShifts = dailyShiftsLeftRef.current !== undefined ? dailyShiftsLeftRef.current : 0;
 			// Check daily shift limit (except ANIS dialogue which is always accessible)
-			if (stationKey !== "anis_dock" && dailyShiftsLeft <= 0) {
+			if (stationKey !== "anis_dock" && currentShifts <= 0) {
 				SoundEngine.playAlertSiren();
-				setActiveTooltip({
-					name: lang === "id" ? "⚠️ SHIFT HARIAN HABIS (3/3)" : "⚠️ DAILY SHIFTS EXHAUSTED (3/3)",
-					action: lang === "id" ? "Leo kelelahan! Lanjutkan ke siklus evaluasi malam 🌙" : "Leo needs rest! Proceed to evening evaluation 🌙"
-				});
-				setTimeout(() => setActiveTooltip(null), 3500);
+				showTooltip({
+					isWarning: true,
+					name: currentLang === "id" ? "⚠️ SHIFT HARIAN HABIS (0/3)" : "⚠️ DAILY SHIFTS EXHAUSTED (0/3)",
+					action: currentLang === "id" ? "Commander Leo sudah menyelesaikan 3 shift tugas hari ini! Lanjutkan ke evaluasi malam 🌙" : "Commander Leo has completed all 3 work shifts today! Proceed to evening evaluation 🌙"
+				}, 4500);
 				return;
 			}
 			let dest = [CENTER_X, CENTER_Z];
@@ -2816,17 +2841,19 @@ function ThreeDOutpostView({ resources, activeDonki, shieldActive, solPhase, cur
 						// Work Completed!
 						if (workTimer <= 0) {
 							const activeDef = currentStationMeta;
-							if (activeDef && activeDef.finalImpact && onInteractStation) {
-								onInteractStation(currentStationKey, activeDef.finalImpact);
+							const interactFn = onInteractStationRef.current || onInteractStation;
+							if (activeDef && activeDef.finalImpact && interactFn) {
+								interactFn(currentStationKey, activeDef.finalImpact);
 							}
 							SoundEngine.playSuccessChime();
 							SoundEngine.playBottleCaps();
+							const currentLang = langRef.current || lang;
 							if (activeDef) {
-								setActiveTooltip({
+								showTooltip({
+									isWarning: false,
 									name: activeDef.name || activeDef.stationName,
-									action: `✅ ${lang === "id" ? "Pemeliharaan Selesai!" : "Maintenance Complete!"} (${activeDef.action || activeDef.actionDesc})`
-								});
-								setTimeout(() => setActiveTooltip(null), 3500);
+									action: `✅ ${currentLang === "id" ? "Pemeliharaan Selesai!" : "Maintenance Complete!"} (${activeDef.action || activeDef.actionDesc})`
+								}, 3500);
 								if (activeDef.rootFbx) {
 									const startY = activeDef.rootFbx.position.y;
 									activeDef.rootFbx.position.y += .5;
@@ -2912,11 +2939,11 @@ function ThreeDOutpostView({ resources, activeDonki, shieldActive, solPhase, cur
 	}), !isLoaded && /* @__PURE__ */ React.createElement("div", { className: "absolute inset-0 z-40 bg-neutral-950/95 backdrop-blur-md flex flex-col items-center justify-center p-4" }, /* @__PURE__ */ React.createElement("div", { className: "w-16 h-16 border-4 border-yellow-400 border-t-transparent rounded-full animate-spin mb-4" }), /* @__PURE__ */ React.createElement("div", { className: "text-base font-black font-vault text-yellow-300 tracking-wider" }, lang === "id" ? "MEMUAT PANGKALAN VAULT-TEC MARS & SISTEM NASA..." : "INITIALIZING VAULT-TEC MARS OUTPOST..."), /* @__PURE__ */ React.createElement("div", { className: "w-80 h-4 bg-neutral-900 rounded-full overflow-hidden mt-3 border-2 border-yellow-500/70 p-0.5" }, /* @__PURE__ */ React.createElement("div", {
 		className: "h-full bg-gradient-to-r from-yellow-500 via-amber-400 to-emerald-400 transition-all duration-300 rounded-full",
 		style: { width: `${loadingProgress}%` }
-	})), /* @__PURE__ */ React.createElement("div", { className: "text-xs text-yellow-200/80 mt-2" }, "Loading: MOXIE Reactor, Bio-Dome, T2 Gym, Solar Grid, A.N.I.S. AI (", loadingProgress, "%)")), activeTooltip && /* @__PURE__ */ React.createElement("div", { className: "absolute top-16 left-1/2 -translate-x-1/2 z-30 bg-neutral-950/95 border-2 border-yellow-400 px-6 py-2.5 rounded-xl shadow-[0_0_25px_rgba(234,179,8,0.5)] backdrop-blur-md animate-fadeIn text-center" }, /* @__PURE__ */ React.createElement("div", { className: "text-xs font-black text-yellow-300 tracking-wider uppercase" }, activeTooltip.name), /* @__PURE__ */ React.createElement("div", { className: "text-[11px] text-emerald-400 font-bold mt-0.5" }, activeTooltip.action)), /* @__PURE__ */ React.createElement("div", { className: "absolute top-3 left-3 z-20 flex items-center gap-2.5 bg-neutral-950/90 backdrop-blur-md px-3.5 py-1.5 rounded-xl border-2 border-yellow-500/80 shadow-lg" }, /* @__PURE__ */ React.createElement("span", { className: "w-2.5 h-2.5 rounded-full bg-rose-500 animate-pulse" }), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { className: "text-[9px] text-yellow-400 font-black tracking-widest uppercase" }, "● REC • CAM-01 • ", lang === "id" ? "HABITAT UTAMA" : "PRIMARY HABITAT"), /* @__PURE__ */ React.createElement("div", { className: "text-xs text-white font-bold" }, "VAULT 703 • ", lang === "id" ? site.name : site.nameEn || site.name, " • Sol ", currentSol))), /* @__PURE__ */ React.createElement("div", { className: "absolute top-3 right-3 z-20 flex items-center gap-2" }, /* @__PURE__ */ React.createElement("button", {
+	})), /* @__PURE__ */ React.createElement("div", { className: "text-xs text-yellow-200/80 mt-2" }, "Loading: MOXIE Reactor, Bio-Dome, T2 Gym, Solar Grid, A.N.I.S. AI (", loadingProgress, "%)")), activeTooltip && /* @__PURE__ */ React.createElement("div", { className: `absolute top-14 left-1/2 -translate-x-1/2 z-30 px-6 py-3 rounded-xl shadow-2xl backdrop-blur-md animate-fadeIn text-center max-w-lg border-2 ${activeTooltip.isWarning ? "bg-rose-950/95 border-rose-500 shadow-[0_0_35px_rgba(244,63,94,0.7)] text-rose-200" : "bg-neutral-950/95 border-yellow-400 shadow-[0_0_25px_rgba(234,179,8,0.5)] text-yellow-300"}` }, /* @__PURE__ */ React.createElement("div", { className: `text-xs sm:text-sm font-black tracking-wider uppercase flex items-center justify-center gap-2 ${activeTooltip.isWarning ? "text-rose-400 font-vault" : "text-yellow-300"}` }, activeTooltip.isWarning && /* @__PURE__ */ React.createElement("span", { className: "text-base animate-bounce" }, "⚠️"), /* @__PURE__ */ React.createElement("span", null, activeTooltip.name)), /* @__PURE__ */ React.createElement("div", { className: `text-[11px] sm:text-xs font-bold mt-1 ${activeTooltip.isWarning ? "text-rose-100 font-sans" : "text-emerald-400"}` }, activeTooltip.action)), /* @__PURE__ */ React.createElement("div", { className: "absolute top-3 left-3 z-20 flex items-center gap-2.5 bg-neutral-950/90 backdrop-blur-md px-3.5 py-1.5 rounded-xl border-2 border-yellow-500/80 shadow-lg" }, /* @__PURE__ */ React.createElement("span", { className: "w-2.5 h-2.5 rounded-full bg-rose-500 animate-pulse" }), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { className: "text-[9px] text-yellow-400 font-black tracking-widest uppercase" }, "● REC • CAM-01 • ", lang === "id" ? "HABITAT UTAMA" : "PRIMARY HABITAT"), /* @__PURE__ */ React.createElement("div", { className: "text-xs text-white font-bold" }, "VAULT 703 • ", lang === "id" ? site.name : site.nameEn || site.name, " • Sol ", currentSol))), /* @__PURE__ */ React.createElement("div", { className: "absolute top-3 right-3 z-20 flex items-center gap-2" }, /* @__PURE__ */ React.createElement("button", {
 		onClick: () => resetCameraRef.current && resetCameraRef.current(),
 		className: "flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-neutral-900/90 hover:bg-neutral-800 border-2 border-yellow-500/70 text-xs font-bold text-yellow-300 transition-all shadow-md active:scale-95",
 		title: lang === "id" ? "Kembalikan sudut kamera awal" : "Reset Camera Angle"
-	}, /* @__PURE__ */ React.createElement("span", null, "🎥"), /* @__PURE__ */ React.createElement("span", null, lang === "id" ? "Reset Kamera" : "Reset Camera"))), /* @__PURE__ */ React.createElement("div", { className: "absolute bottom-3 right-3 z-20 hidden sm:flex items-center gap-2 bg-neutral-950/85 backdrop-blur-md px-3 py-1.5 rounded-xl border border-neutral-700 text-[10px] text-neutral-300 shadow-md" }, /* @__PURE__ */ React.createElement("span", null, "🎮"), /* @__PURE__ */ React.createElement("span", null, lang === "id" ? "Klik & geser untuk rotasi 360° • Scroll untuk zoom" : "Drag to rotate 360° • Scroll to zoom"))), /* @__PURE__ */ React.createElement("div", { className: "w-full bg-[#0a0f1d] border-t-2 border-yellow-500 p-2.5 sm:p-3 flex flex-wrap items-center justify-between gap-2.5 z-20" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-3 text-xs flex-wrap" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-2" }, isWorking ? /* @__PURE__ */ React.createElement("span", { className: "text-yellow-400 font-bold animate-spin text-sm" }, "⚙️") : /* @__PURE__ */ React.createElement("span", { className: "w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping" }), /* @__PURE__ */ React.createElement("span", { className: `font-bold tracking-wide ${isWorking ? "text-yellow-300" : "text-emerald-300 pipboy-glow"}` }, "[LEO-01]: ", dailyShiftsLeft <= 0 && !isWorking ? lang === "id" ? "Shift hari ini selesai (3/3). Leo beristirahat untuk evaluasi malam 🌙" : "All 3/3 shifts completed. Leo resting for night evaluation 🌙" : characterStatusText)), isWorking && workSecondsLeft > 0 && /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-2 px-2.5 py-1 bg-yellow-950/80 border border-yellow-400 rounded-md shadow-[0_0_10px_rgba(234,179,8,0.4)]" }, /* @__PURE__ */ React.createElement("span", { className: "text-[10px] font-black text-yellow-300 font-vault tracking-widest uppercase" }, lang === "id" ? "PROSES" : "BUSY", ": ", workSecondsLeft, "s"), /* @__PURE__ */ React.createElement("div", { className: "w-16 h-2 bg-neutral-900 rounded-full overflow-hidden border border-yellow-500/60 p-0.5" }, /* @__PURE__ */ React.createElement("div", {
+	}, /* @__PURE__ */ React.createElement("span", null, "🎥"), /* @__PURE__ */ React.createElement("span", null, lang === "id" ? "Reset Kamera" : "Reset Camera"))), /* @__PURE__ */ React.createElement("div", { className: "absolute bottom-3 right-3 z-20 hidden sm:flex items-center gap-2 bg-neutral-950/85 backdrop-blur-md px-3 py-1.5 rounded-xl border border-neutral-700 text-[10px] text-neutral-300 shadow-md" }, /* @__PURE__ */ React.createElement("span", null, "🎮"), /* @__PURE__ */ React.createElement("span", null, lang === "id" ? "Klik & geser untuk rotasi 360° • Scroll untuk zoom" : "Drag to rotate 360° • Scroll to zoom"))), /* @__PURE__ */ React.createElement("div", { className: "w-full bg-[#0a0f1d] border-t-2 border-yellow-500 p-2.5 sm:p-3 flex flex-wrap items-center justify-between gap-2.5 z-20" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-3 text-xs flex-wrap" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-2" }, isWorking ? /* @__PURE__ */ React.createElement("span", { className: "text-yellow-400 font-bold animate-spin text-sm" }, "⚙️") : /* @__PURE__ */ React.createElement("span", { className: "w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping" }), /* @__PURE__ */ React.createElement("span", { className: `font-bold tracking-wide ${isWorking ? "text-yellow-300" : "text-emerald-300 pipboy-glow"}` }, "[LEO-01]: ", dailyShiftsLeft <= 0 && !isWorking ? lang === "id" ? "⚠️ Shift hari ini habis (0/3). Commander Leo istirahat, silakan lanjut ke evaluasi malam! 🌙" : "⚠️ Daily shifts depleted (0/3). Commander Leo is resting, proceed to evening evaluation! 🌙" : characterStatusText)), isWorking && workSecondsLeft > 0 && /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-2 px-2.5 py-1 bg-yellow-950/80 border border-yellow-400 rounded-md shadow-[0_0_10px_rgba(234,179,8,0.4)]" }, /* @__PURE__ */ React.createElement("span", { className: "text-[10px] font-black text-yellow-300 font-vault tracking-widest uppercase" }, lang === "id" ? "PROSES" : "BUSY", ": ", workSecondsLeft, "s"), /* @__PURE__ */ React.createElement("div", { className: "w-16 h-2 bg-neutral-900 rounded-full overflow-hidden border border-yellow-500/60 p-0.5" }, /* @__PURE__ */ React.createElement("div", {
 		className: "h-full bg-gradient-to-r from-yellow-500 to-emerald-400 transition-all duration-300 rounded-full",
 		style: { width: `${workProgress}%` }
 	}))), /* @__PURE__ */ React.createElement("div", {
@@ -2934,25 +2961,37 @@ function ThreeDOutpostView({ resources, activeDonki, shieldActive, solPhase, cur
 			title: isReady ? lang === "id" ? `Shift ${idx + 1} Siap` : `Shift ${idx + 1} Ready` : lang === "id" ? `Shift ${idx + 1} Terpakai` : `Shift ${idx + 1} Used`
 		}, isReady && /* @__PURE__ */ React.createElement("span", { className: "w-1.5 h-1.5 rounded-full bg-white animate-pulse" }));
 	})), /* @__PURE__ */ React.createElement("span", { className: `text-[10px] font-black font-vault ${dailyShiftsLeft > 0 ? "text-emerald-400" : "text-rose-400 animate-pulse"}` }, dailyShiftsLeft, "/3"))), /* @__PURE__ */ React.createElement("div", { className: "flex flex-wrap items-center gap-2" }, /* @__PURE__ */ React.createElement("div", { className: "relative" }, highlightedTarget === "power_grid" && /* @__PURE__ */ React.createElement("div", { className: "absolute -top-7 left-1/2 -translate-x-1/2 z-30 pointer-events-none flex flex-col items-center animate-bounce" }, /* @__PURE__ */ React.createElement("span", { className: "px-2 py-0.5 rounded bg-yellow-400 text-black text-[9px] font-vault font-black tracking-wider uppercase shadow-[0_0_10px_#facc15] whitespace-nowrap" }, lang === "id" ? "👆 KLIK INI" : "👆 CLICK HERE"), /* @__PURE__ */ React.createElement("span", { className: "w-1.5 h-1.5 bg-yellow-400 rotate-45 -mt-1" })), /* @__PURE__ */ React.createElement("button", {
-		onClick: () => triggerStationRef.current && triggerStationRef.current("power_grid"),
-		disabled: isWorking || dailyShiftsLeft <= 0,
-		className: `flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg vault-btn text-yellow-300 text-xs font-bold transition-all transform ${highlightedTarget === "power_grid" ? "ring-4 ring-yellow-400 bg-yellow-500/40 shadow-[0_0_25px_rgba(250,204,21,0.9)] animate-pulse scale-105" : isWorking ? activeStation === "power_grid" ? "ring-2 ring-yellow-400 bg-yellow-500/20 animate-pulse" : "opacity-40 cursor-not-allowed" : dailyShiftsLeft <= 0 ? "opacity-40 cursor-not-allowed" : "active:scale-95"}`,
-		title: isWorking ? lang === "id" ? "Leo sedang sibuk bekerja..." : "Leo is busy working..." : dailyShiftsLeft <= 0 ? lang === "id" ? "Shift hari ini telah habis (3/3). Lanjutkan ke evaluasi malam!" : "Daily shifts depleted (3/3). Proceed to night evaluation!" : lang === "id" ? "Kirim Leo ke Hub Panel Surya & Baterai (+15% Daya, -10% O2)" : "Send Leo to Solar Panel & Battery Hub (+15% Power, -10% O2)"
+		onClick: () => {
+			if (isWorking) return;
+			if (triggerStationRef.current) triggerStationRef.current("power_grid");
+		},
+		disabled: isWorking,
+		className: `flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg vault-btn text-yellow-300 text-xs font-bold transition-all transform ${highlightedTarget === "power_grid" ? "ring-4 ring-yellow-400 bg-yellow-500/40 shadow-[0_0_25px_rgba(250,204,21,0.9)] animate-pulse scale-105" : isWorking ? activeStation === "power_grid" ? "ring-2 ring-yellow-400 bg-yellow-500/20 animate-pulse" : "opacity-40 cursor-not-allowed" : dailyShiftsLeft <= 0 ? "opacity-40 cursor-pointer hover:border-rose-500 hover:text-rose-300" : "active:scale-95"}`,
+		title: isWorking ? lang === "id" ? "Leo sedang sibuk bekerja..." : "Leo is busy working..." : dailyShiftsLeft <= 0 ? lang === "id" ? "⚠️ Shift hari ini telah habis (0/3). Klik untuk melihat peringatan!" : "⚠️ Daily shifts depleted (0/3). Click for info!" : lang === "id" ? "Kirim Leo ke Hub Panel Surya & Baterai (+15% Daya, -10% O2)" : "Send Leo to Solar Panel & Battery Hub (+15% Power, -10% O2)"
 	}, /* @__PURE__ */ React.createElement("span", null, "⚡"), /* @__PURE__ */ React.createElement("span", null, lang === "id" ? "PANEL SURYA" : "POWER GRID"))), /* @__PURE__ */ React.createElement("div", { className: "relative" }, highlightedTarget === "moxie" && /* @__PURE__ */ React.createElement("div", { className: "absolute -top-7 left-1/2 -translate-x-1/2 z-30 pointer-events-none flex flex-col items-center animate-bounce" }, /* @__PURE__ */ React.createElement("span", { className: "px-2 py-0.5 rounded bg-cyan-400 text-black text-[9px] font-vault font-black tracking-wider uppercase shadow-[0_0_10px_#22d3ee] whitespace-nowrap" }, lang === "id" ? "👆 KLIK INI" : "👆 CLICK HERE"), /* @__PURE__ */ React.createElement("span", { className: "w-1.5 h-1.5 bg-cyan-400 rotate-45 -mt-1" })), /* @__PURE__ */ React.createElement("button", {
-		onClick: () => triggerStationRef.current && triggerStationRef.current("moxie"),
-		disabled: isWorking || dailyShiftsLeft <= 0,
-		className: `flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg vault-btn text-cyan-300 text-xs font-bold transition-all transform ${highlightedTarget === "moxie" ? "ring-4 ring-cyan-400 bg-cyan-500/40 shadow-[0_0_25px_rgba(34,211,238,0.9)] animate-pulse scale-105" : isWorking ? activeStation === "moxie" ? "ring-2 ring-cyan-400 bg-cyan-500/20 animate-pulse" : "opacity-40 cursor-not-allowed" : dailyShiftsLeft <= 0 ? "opacity-40 cursor-not-allowed" : "active:scale-95"}`,
-		title: isWorking ? lang === "id" ? "Leo sedang sibuk bekerja..." : "Leo is busy working..." : dailyShiftsLeft <= 0 ? lang === "id" ? "Shift hari ini telah habis (3/3). Lanjutkan ke evaluasi malam!" : "Daily shifts depleted (3/3). Proceed to night evaluation!" : lang === "id" ? "Kirim Leo ke Reaktor MOXIE (+15% O2, -10% Daya)" : "Send Leo to MOXIE Reactor (+15% O2, -10% Power)"
+		onClick: () => {
+			if (isWorking) return;
+			if (triggerStationRef.current) triggerStationRef.current("moxie");
+		},
+		disabled: isWorking,
+		className: `flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg vault-btn text-cyan-300 text-xs font-bold transition-all transform ${highlightedTarget === "moxie" ? "ring-4 ring-cyan-400 bg-cyan-500/40 shadow-[0_0_25px_rgba(34,211,238,0.9)] animate-pulse scale-105" : isWorking ? activeStation === "moxie" ? "ring-2 ring-cyan-400 bg-cyan-500/20 animate-pulse" : "opacity-40 cursor-not-allowed" : dailyShiftsLeft <= 0 ? "opacity-40 cursor-pointer hover:border-rose-500 hover:text-rose-300" : "active:scale-95"}`,
+		title: isWorking ? lang === "id" ? "Leo sedang sibuk bekerja..." : "Leo is busy working..." : dailyShiftsLeft <= 0 ? lang === "id" ? "⚠️ Shift hari ini telah habis (0/3). Klik untuk melihat peringatan!" : "⚠️ Daily shifts depleted (0/3). Click for info!" : lang === "id" ? "Kirim Leo ke Reaktor MOXIE (+15% O2, -10% Daya)" : "Send Leo to MOXIE Reactor (+15% O2, -10% Power)"
 	}, /* @__PURE__ */ React.createElement("span", null, "💨"), /* @__PURE__ */ React.createElement("span", null, "MOXIE (+O2)"))), /* @__PURE__ */ React.createElement("button", {
-		onClick: () => triggerStationRef.current && triggerStationRef.current("greenhouse"),
-		disabled: isWorking || dailyShiftsLeft <= 0,
-		className: `flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg vault-btn text-emerald-300 text-xs font-bold transition-all transform ${isWorking ? activeStation === "greenhouse" ? "ring-2 ring-emerald-400 bg-emerald-500/20 animate-pulse" : "opacity-40 cursor-not-allowed" : dailyShiftsLeft <= 0 ? "opacity-40 cursor-not-allowed" : "active:scale-95"}`,
-		title: isWorking ? lang === "id" ? "Leo sedang sibuk bekerja..." : "Leo is busy working..." : dailyShiftsLeft <= 0 ? lang === "id" ? "Shift hari ini telah habis (3/3). Lanjutkan ke evaluasi malam!" : "Daily shifts depleted (3/3). Proceed to night evaluation!" : lang === "id" ? "Kirim Leo ke Bio-Dome (+15% Kru, -10% Daya)" : "Send Leo to Bio-Dome (+15% Crew, -10% Power)"
+		onClick: () => {
+			if (isWorking) return;
+			if (triggerStationRef.current) triggerStationRef.current("greenhouse");
+		},
+		disabled: isWorking,
+		className: `flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg vault-btn text-emerald-300 text-xs font-bold transition-all transform ${isWorking ? activeStation === "greenhouse" ? "ring-2 ring-emerald-400 bg-emerald-500/20 animate-pulse" : "opacity-40 cursor-not-allowed" : dailyShiftsLeft <= 0 ? "opacity-40 cursor-pointer hover:border-rose-500 hover:text-rose-300" : "active:scale-95"}`,
+		title: isWorking ? lang === "id" ? "Leo sedang sibuk bekerja..." : "Leo is busy working..." : dailyShiftsLeft <= 0 ? lang === "id" ? "⚠️ Shift hari ini telah habis (0/3). Klik untuk melihat peringatan!" : "⚠️ Daily shifts depleted (0/3). Click for info!" : lang === "id" ? "Kirim Leo ke Bio-Dome (+15% Kru, -10% Daya)" : "Send Leo to Bio-Dome (+15% Crew, -10% Power)"
 	}, /* @__PURE__ */ React.createElement("span", null, "🌱"), /* @__PURE__ */ React.createElement("span", null, lang === "id" ? "BIO-DOME (+KRU)" : "BIO-DOME (+CREW)")), /* @__PURE__ */ React.createElement("button", {
-		onClick: () => triggerStationRef.current && triggerStationRef.current("treadmill"),
-		disabled: isWorking || dailyShiftsLeft <= 0,
-		className: `flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg vault-btn text-indigo-300 text-xs font-bold transition-all transform ${isWorking ? activeStation === "treadmill" ? "ring-2 ring-indigo-400 bg-indigo-500/20 animate-pulse" : "opacity-40 cursor-not-allowed" : dailyShiftsLeft <= 0 ? "opacity-40 cursor-not-allowed" : "active:scale-95"}`,
-		title: isWorking ? lang === "id" ? "Leo sedang sibuk bekerja..." : "Leo is busy working..." : dailyShiftsLeft <= 0 ? lang === "id" ? "Shift hari ini telah habis (3/3). Lanjutkan ke evaluasi malam!" : "Daily shifts depleted (3/3). Proceed to night evaluation!" : lang === "id" ? "Kirim Leo ke Treadmill NASA T2 (+15% Kru, -10% O2)" : "Send Leo to NASA T2 Treadmill (+15% Crew, -10% O2)"
+		onClick: () => {
+			if (isWorking) return;
+			if (triggerStationRef.current) triggerStationRef.current("treadmill");
+		},
+		disabled: isWorking,
+		className: `flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg vault-btn text-indigo-300 text-xs font-bold transition-all transform ${isWorking ? activeStation === "treadmill" ? "ring-2 ring-indigo-400 bg-indigo-500/20 animate-pulse" : "opacity-40 cursor-not-allowed" : dailyShiftsLeft <= 0 ? "opacity-40 cursor-pointer hover:border-rose-500 hover:text-rose-300" : "active:scale-95"}`,
+		title: isWorking ? lang === "id" ? "Leo sedang sibuk bekerja..." : "Leo is busy working..." : dailyShiftsLeft <= 0 ? lang === "id" ? "⚠️ Shift hari ini telah habis (0/3). Klik untuk melihat peringatan!" : "⚠️ Daily shifts depleted (0/3). Click for info!" : lang === "id" ? "Kirim Leo ke Treadmill NASA T2 (+15% Kru, -10% O2)" : "Send Leo to NASA T2 Treadmill (+15% Crew, -10% O2)"
 	}, /* @__PURE__ */ React.createElement("span", null, "🏃"), /* @__PURE__ */ React.createElement("span", null, "TREADMILL (OSDR)")), /* @__PURE__ */ React.createElement("div", { className: "relative" }, highlightedTarget === "anis_dock" && /* @__PURE__ */ React.createElement("div", { className: "absolute -top-7 left-1/2 -translate-x-1/2 z-30 pointer-events-none flex flex-col items-center animate-bounce" }, /* @__PURE__ */ React.createElement("span", { className: "px-2 py-0.5 rounded bg-emerald-400 text-black text-[9px] font-vault font-black tracking-wider uppercase shadow-[0_0_10px_#34d399] whitespace-nowrap" }, lang === "id" ? "👆 KLIK INI" : "👆 CLICK HERE"), /* @__PURE__ */ React.createElement("span", { className: "w-1.5 h-1.5 bg-emerald-400 rotate-45 -mt-1" })), /* @__PURE__ */ React.createElement("button", {
 		onClick: () => {
 			SoundEngine.playPipBoyOpen();

@@ -45,6 +45,33 @@ export default function ThreeDOutpostView({
 
   const triggerStationRef = useRef(null);
   const resetCameraRef = useRef(null);
+  const tooltipTimeoutRef = useRef(null);
+
+  // Live mutable refs to eliminate any stale closures in Three.js animation / event callbacks
+  const dailyShiftsLeftRef = useRef(dailyShiftsLeft);
+  useEffect(() => {
+    dailyShiftsLeftRef.current = dailyShiftsLeft;
+  }, [dailyShiftsLeft]);
+
+  const langRef = useRef(lang);
+  useEffect(() => {
+    langRef.current = lang;
+  }, [lang]);
+
+  const onInteractStationRef = useRef(onInteractStation);
+  useEffect(() => {
+    onInteractStationRef.current = onInteractStation;
+  }, [onInteractStation]);
+
+  const showTooltip = (tooltipObj, duration = 3500) => {
+    if (tooltipTimeoutRef.current) {
+      clearTimeout(tooltipTimeoutRef.current);
+    }
+    setActiveTooltip(tooltipObj);
+    tooltipTimeoutRef.current = setTimeout(() => {
+      setActiveTooltip(null);
+    }, duration);
+  };
 
   const isStorming = activeDonki?.hazardLevel === 'CRITICAL' || activeDonki?.hazardLevel === 'EXTREME';
 
@@ -880,14 +907,19 @@ export default function ThreeDOutpostView({
       // Prevent interrupting when Leo is already traveling, working, or returning!
       if (workPhase !== 'IDLE') return;
 
+      const currentLang = langRef.current || 'en';
+      const currentShifts = dailyShiftsLeftRef.current !== undefined ? dailyShiftsLeftRef.current : 0;
+
       // Check daily shift limit (except ANIS dialogue which is always accessible)
-      if (stationKey !== 'anis_dock' && dailyShiftsLeft <= 0) {
+      if (stationKey !== 'anis_dock' && currentShifts <= 0) {
         SoundEngine.playAlertSiren();
-        setActiveTooltip({
-          name: lang === 'id' ? '⚠️ SHIFT HARIAN HABIS (3/3)' : '⚠️ DAILY SHIFTS EXHAUSTED (3/3)',
-          action: lang === 'id' ? 'Leo kelelahan! Lanjutkan ke siklus evaluasi malam 🌙' : 'Leo needs rest! Proceed to evening evaluation 🌙'
-        });
-        setTimeout(() => setActiveTooltip(null), 3500);
+        showTooltip({
+          isWarning: true,
+          name: currentLang === 'id' ? '⚠️ SHIFT HARIAN HABIS (0/3)' : '⚠️ DAILY SHIFTS EXHAUSTED (0/3)',
+          action: currentLang === 'id' 
+            ? 'Commander Leo sudah menyelesaikan 3 shift tugas hari ini! Lanjutkan ke evaluasi malam 🌙' 
+            : 'Commander Leo has completed all 3 work shifts today! Proceed to evening evaluation 🌙'
+        }, 4500);
         return;
       }
 
@@ -1215,19 +1247,21 @@ export default function ThreeDOutpostView({
             // Work Completed!
             if (workTimer <= 0) {
               const activeDef = currentStationMeta;
-              if (activeDef && activeDef.finalImpact && onInteractStation) {
-                onInteractStation(currentStationKey, activeDef.finalImpact);
+              const interactFn = onInteractStationRef.current || onInteractStation;
+              if (activeDef && activeDef.finalImpact && interactFn) {
+                interactFn(currentStationKey, activeDef.finalImpact);
               }
 
               SoundEngine.playSuccessChime();
               SoundEngine.playBottleCaps();
 
+              const currentLang = langRef.current || lang;
               if (activeDef) {
-                setActiveTooltip({
+                showTooltip({
+                  isWarning: false,
                   name: activeDef.name || activeDef.stationName,
-                  action: `✅ ${lang === 'id' ? 'Pemeliharaan Selesai!' : 'Maintenance Complete!'} (${activeDef.action || activeDef.actionDesc})`
-                });
-                setTimeout(() => setActiveTooltip(null), 3500);
+                  action: `✅ ${currentLang === 'id' ? 'Pemeliharaan Selesai!' : 'Maintenance Complete!'} (${activeDef.action || activeDef.actionDesc})`
+                }, 3500);
 
                 if (activeDef.rootFbx) {
                   const startY = activeDef.rootFbx.position.y;
@@ -1347,11 +1381,24 @@ export default function ThreeDOutpostView({
           </div>
         )}
 
-        {/* Floating 3D Interaction Notification Tooltip */}
+        {/* Floating 3D Interaction Notification Tooltip / Shift Warning Alert */}
         {activeTooltip && (
-          <div className="absolute top-16 left-1/2 -translate-x-1/2 z-30 bg-neutral-950/95 border-2 border-yellow-400 px-6 py-2.5 rounded-xl shadow-[0_0_25px_rgba(234,179,8,0.5)] backdrop-blur-md animate-fadeIn text-center">
-            <div className="text-xs font-black text-yellow-300 tracking-wider uppercase">{activeTooltip.name}</div>
-            <div className="text-[11px] text-emerald-400 font-bold mt-0.5">{activeTooltip.action}</div>
+          <div className={`absolute top-14 left-1/2 -translate-x-1/2 z-30 px-6 py-3 rounded-xl shadow-2xl backdrop-blur-md animate-fadeIn text-center max-w-lg border-2 ${
+            activeTooltip.isWarning 
+              ? 'bg-rose-950/95 border-rose-500 shadow-[0_0_35px_rgba(244,63,94,0.7)] text-rose-200' 
+              : 'bg-neutral-950/95 border-yellow-400 shadow-[0_0_25px_rgba(234,179,8,0.5)] text-yellow-300'
+          }`}>
+            <div className={`text-xs sm:text-sm font-black tracking-wider uppercase flex items-center justify-center gap-2 ${
+              activeTooltip.isWarning ? 'text-rose-400 font-vault' : 'text-yellow-300'
+            }`}>
+              {activeTooltip.isWarning && <span className="text-base animate-bounce">⚠️</span>}
+              <span>{activeTooltip.name}</span>
+            </div>
+            <div className={`text-[11px] sm:text-xs font-bold mt-1 ${
+              activeTooltip.isWarning ? 'text-rose-100 font-sans' : 'text-emerald-400'
+            }`}>
+              {activeTooltip.action}
+            </div>
           </div>
         )}
 
@@ -1399,7 +1446,9 @@ export default function ThreeDOutpostView({
             )}
             <span className={`font-bold tracking-wide ${isWorking ? 'text-yellow-300' : 'text-emerald-300 pipboy-glow'}`}>
               [LEO-01]: {dailyShiftsLeft <= 0 && !isWorking 
-                ? (lang === 'id' ? 'Shift hari ini selesai (3/3). Leo beristirahat untuk evaluasi malam 🌙' : 'All 3/3 shifts completed. Leo resting for night evaluation 🌙') 
+                ? (lang === 'id' 
+                    ? '⚠️ Shift hari ini habis (0/3). Commander Leo istirahat, silakan lanjut ke evaluasi malam! 🌙' 
+                    : '⚠️ Daily shifts depleted (0/3). Commander Leo is resting, proceed to evening evaluation! 🌙') 
                 : characterStatusText}
             </span>
           </div>
@@ -1463,8 +1512,11 @@ export default function ThreeDOutpostView({
               </div>
             )}
             <button
-              onClick={() => triggerStationRef.current && triggerStationRef.current('power_grid')}
-              disabled={isWorking || dailyShiftsLeft <= 0}
+              onClick={() => {
+                if (isWorking) return;
+                if (triggerStationRef.current) triggerStationRef.current('power_grid');
+              }}
+              disabled={isWorking}
               className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg vault-btn text-yellow-300 text-xs font-bold transition-all transform ${
                 highlightedTarget === 'power_grid'
                   ? 'ring-4 ring-yellow-400 bg-yellow-500/40 shadow-[0_0_25px_rgba(250,204,21,0.9)] animate-pulse scale-105'
@@ -1473,13 +1525,13 @@ export default function ThreeDOutpostView({
                       ? 'ring-2 ring-yellow-400 bg-yellow-500/20 animate-pulse' 
                       : 'opacity-40 cursor-not-allowed' 
                     : dailyShiftsLeft <= 0 
-                      ? 'opacity-40 cursor-not-allowed' 
+                      ? 'opacity-40 cursor-pointer hover:border-rose-500 hover:text-rose-300' 
                       : 'active:scale-95'
               }`}
               title={isWorking 
                 ? (lang === 'id' ? 'Leo sedang sibuk bekerja...' : 'Leo is busy working...') 
                 : dailyShiftsLeft <= 0 
-                  ? (lang === 'id' ? 'Shift hari ini telah habis (3/3). Lanjutkan ke evaluasi malam!' : 'Daily shifts depleted (3/3). Proceed to night evaluation!') 
+                  ? (lang === 'id' ? '⚠️ Shift hari ini telah habis (0/3). Klik untuk melihat peringatan!' : '⚠️ Daily shifts depleted (0/3). Click for info!') 
                   : (lang === 'id' ? 'Kirim Leo ke Hub Panel Surya & Baterai (+15% Daya, -10% O2)' : 'Send Leo to Solar Panel & Battery Hub (+15% Power, -10% O2)')}
             >
               <span>⚡</span>
@@ -1498,8 +1550,11 @@ export default function ThreeDOutpostView({
               </div>
             )}
             <button
-              onClick={() => triggerStationRef.current && triggerStationRef.current('moxie')}
-              disabled={isWorking || dailyShiftsLeft <= 0}
+              onClick={() => {
+                if (isWorking) return;
+                if (triggerStationRef.current) triggerStationRef.current('moxie');
+              }}
+              disabled={isWorking}
               className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg vault-btn text-cyan-300 text-xs font-bold transition-all transform ${
                 highlightedTarget === 'moxie'
                   ? 'ring-4 ring-cyan-400 bg-cyan-500/40 shadow-[0_0_25px_rgba(34,211,238,0.9)] animate-pulse scale-105'
@@ -1508,13 +1563,13 @@ export default function ThreeDOutpostView({
                       ? 'ring-2 ring-cyan-400 bg-cyan-500/20 animate-pulse' 
                       : 'opacity-40 cursor-not-allowed' 
                     : dailyShiftsLeft <= 0 
-                      ? 'opacity-40 cursor-not-allowed' 
+                      ? 'opacity-40 cursor-pointer hover:border-rose-500 hover:text-rose-300' 
                       : 'active:scale-95'
               }`}
               title={isWorking 
                 ? (lang === 'id' ? 'Leo sedang sibuk bekerja...' : 'Leo is busy working...') 
                 : dailyShiftsLeft <= 0 
-                  ? (lang === 'id' ? 'Shift hari ini telah habis (3/3). Lanjutkan ke evaluasi malam!' : 'Daily shifts depleted (3/3). Proceed to night evaluation!') 
+                  ? (lang === 'id' ? '⚠️ Shift hari ini telah habis (0/3). Klik untuk melihat peringatan!' : '⚠️ Daily shifts depleted (0/3). Click for info!') 
                   : (lang === 'id' ? 'Kirim Leo ke Reaktor MOXIE (+15% O2, -10% Daya)' : 'Send Leo to MOXIE Reactor (+15% O2, -10% Power)')}
             >
               <span>💨</span>
@@ -1524,21 +1579,24 @@ export default function ThreeDOutpostView({
 
           {/* BIO-DOME BUTTON */}
           <button
-            onClick={() => triggerStationRef.current && triggerStationRef.current('greenhouse')}
-            disabled={isWorking || dailyShiftsLeft <= 0}
+            onClick={() => {
+              if (isWorking) return;
+              if (triggerStationRef.current) triggerStationRef.current('greenhouse');
+            }}
+            disabled={isWorking}
             className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg vault-btn text-emerald-300 text-xs font-bold transition-all transform ${
               isWorking 
                 ? activeStation === 'greenhouse' 
                   ? 'ring-2 ring-emerald-400 bg-emerald-500/20 animate-pulse' 
                   : 'opacity-40 cursor-not-allowed' 
                 : dailyShiftsLeft <= 0 
-                  ? 'opacity-40 cursor-not-allowed' 
+                  ? 'opacity-40 cursor-pointer hover:border-rose-500 hover:text-rose-300' 
                   : 'active:scale-95'
             }`}
             title={isWorking 
               ? (lang === 'id' ? 'Leo sedang sibuk bekerja...' : 'Leo is busy working...') 
               : dailyShiftsLeft <= 0 
-                ? (lang === 'id' ? 'Shift hari ini telah habis (3/3). Lanjutkan ke evaluasi malam!' : 'Daily shifts depleted (3/3). Proceed to night evaluation!') 
+                ? (lang === 'id' ? '⚠️ Shift hari ini telah habis (0/3). Klik untuk melihat peringatan!' : '⚠️ Daily shifts depleted (0/3). Click for info!') 
                 : (lang === 'id' ? 'Kirim Leo ke Bio-Dome (+15% Kru, -10% Daya)' : 'Send Leo to Bio-Dome (+15% Crew, -10% Power)')}
           >
             <span>🌱</span>
@@ -1547,21 +1605,24 @@ export default function ThreeDOutpostView({
 
           {/* TREADMILL BUTTON */}
           <button
-            onClick={() => triggerStationRef.current && triggerStationRef.current('treadmill')}
-            disabled={isWorking || dailyShiftsLeft <= 0}
+            onClick={() => {
+              if (isWorking) return;
+              if (triggerStationRef.current) triggerStationRef.current('treadmill');
+            }}
+            disabled={isWorking}
             className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg vault-btn text-indigo-300 text-xs font-bold transition-all transform ${
               isWorking 
                 ? activeStation === 'treadmill' 
                   ? 'ring-2 ring-indigo-400 bg-indigo-500/20 animate-pulse' 
                   : 'opacity-40 cursor-not-allowed' 
                 : dailyShiftsLeft <= 0 
-                  ? 'opacity-40 cursor-not-allowed' 
+                  ? 'opacity-40 cursor-pointer hover:border-rose-500 hover:text-rose-300' 
                   : 'active:scale-95'
             }`}
             title={isWorking 
               ? (lang === 'id' ? 'Leo sedang sibuk bekerja...' : 'Leo is busy working...') 
               : dailyShiftsLeft <= 0 
-                ? (lang === 'id' ? 'Shift hari ini telah habis (3/3). Lanjutkan ke evaluasi malam!' : 'Daily shifts depleted (3/3). Proceed to night evaluation!') 
+                ? (lang === 'id' ? '⚠️ Shift hari ini telah habis (0/3). Klik untuk melihat peringatan!' : '⚠️ Daily shifts depleted (0/3). Click for info!') 
                 : (lang === 'id' ? 'Kirim Leo ke Treadmill NASA T2 (+15% Kru, -10% O2)' : 'Send Leo to NASA T2 Treadmill (+15% Crew, -10% O2)')}
           >
             <span>🏃</span>

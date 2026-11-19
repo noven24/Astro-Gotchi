@@ -2,6 +2,7 @@
 ### *NASA Space Apps Challenge — [Build a Junior Astronaut Mission Trainer]*
 
 **Astro-Gotchi** adalah permainan simulasi manajemen pangkalan Mars berbasis web (React) yang dirancang khusus untuk calon astronot junior usia **7–12 tahun**. Berbeda dengan game virtual pet biasa, Astro-Gotchi berfokus pada **Sistem Trade-Off (Kompromi Bertahan Hidup)** di mana setiap keputusan memiliki konsekuensi nyata terhadap kelangsungan hidup pangkalan di Planet Merah!
+Link Website: https://astro-gotchi-glx5.vercel.app
 
 ---
 
@@ -128,12 +129,4 @@ Junior Astronot/
 
 ---
 
-## 🏆 Kriteria Penilaian Hackathon NASA yang Dipenuhi
-| Kriteria | Implementasi di Astro-Gotchi |
-|---|---|
-| **Kesesuaian Tema** | Game pelatih misi astronot junior usia 7-12 tahun berbasis web. |
-| **Integrasi Data NASA** | Memakai data historis asli DONKI (CME/Flare), riset OSDR & RadLab (atrofi otot/radiasi), dan kartografi Mars Trek (Kawah Jezero). |
-| **Mekanik Edukatif** | Sistem Trade-Off nyata (tidak ada pilihan yang 100% aman). Kegagalan misi disertai penjelasan sains nyata. |
-| **Inovasi AI** | Asisten AI A.N.I.S. yang menerjemahkan jargon sains ke Plain Language (analogi ramah anak) dengan opsi Gemini API live. |
-| **Aksesibilitas** | Berbasis Web (React), responsif di laptop/tablet, tanpa unduhan besar, bilingual (ID/EN), dan dilengkapi audio synthesizer. |
 
